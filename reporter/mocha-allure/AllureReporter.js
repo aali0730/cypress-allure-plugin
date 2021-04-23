@@ -154,7 +154,7 @@ module.exports = class AllureReporter {
 
         if (
             config &&
-            config.clearFilesForPreviousAttempt() &&
+            config.clearFilesForPreviousAttempt &&
             test._currentRetry > 0
         ) {
             // remove screenshots from previous attempt
@@ -163,7 +163,7 @@ module.exports = class AllureReporter {
             );
         }
 
-        if (config && config.addAnalyticLabels()) {
+        if (config && config.addAnalyticLabels) {
             this.currentTest.addLabel(LabelName.FRAMEWORK, 'Cypress');
             const language = languageLabel(test);
             language && this.currentTest.addLabel(LabelName.LANGUAGE, language);
@@ -200,10 +200,6 @@ module.exports = class AllureReporter {
         if (globalThis && globalThis.testState) {
             const { testState } = globalThis;
             const { currentTest } = this;
-
-            // set bdd feature by default
-            currentTest.addLabel('feature', testState.feature.name);
-
             /**
              * tags set on test level has higher priority
              * to not be overwritten by feature tags
@@ -216,18 +212,7 @@ module.exports = class AllureReporter {
                             const match = tagToLabel.exec(name);
                             if (match) {
                                 const [, command, value] = match;
-                                // feature and suite should be overwritten to avoid duplicates
-                                if (['feature', 'suite'].includes(command)) {
-                                    const index = currentTest.info.labels.findIndex(
-                                        (label) => label.name === command
-                                    );
-                                    currentTest.info.labels[index] = {
-                                        name: command,
-                                        value: value
-                                    };
-                                } else {
-                                    currentTest.addLabel(command, value);
-                                }
+                                currentTest.addLabel(command, value);
                             }
                             return !match;
                         })
@@ -236,14 +221,11 @@ module.exports = class AllureReporter {
                             const match = tagToLink.exec(name);
                             if (match) {
                                 const [, command, name, url] = match;
-
-                                const prefixBy = {
-                                    issue: Cypress.env('issuePrefix'),
-                                    tms: Cypress.env('tmsPrefix'),
-                                    link: null
-                                };
-                                const urlPrefix = prefixBy[command];
-
+                                const urlPrefix = Cypress.env(
+                                    command === 'issue'
+                                        ? 'issuePrefix'
+                                        : 'tmsPrefix'
+                                );
                                 const pattern =
                                     urlPrefix && urlPrefix.includes('*')
                                         ? urlPrefix
@@ -263,6 +245,7 @@ module.exports = class AllureReporter {
                             currentTest.addLabel('tag', name.replace('@', ''));
                         });
             });
+            currentTest.addLabel('feature', testState.feature.name);
         }
     }
 
